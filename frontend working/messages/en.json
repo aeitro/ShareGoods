@@ -1,0 +1,31 @@
+{
+  "Index": {
+    "title": "Turn Your Extra Items into Lifesaving Help",
+    "description": "Connect with people in need by donating clothes, shoes, and essentials. Make a difference in your community, one donation at a time.",
+    "getStarted": "Get Started",
+    "login": "Login",
+    "impact": "Our Impact",
+    "howItWorks": "How it Works"
+  },
+  "Navigation": {
+    "dashboard": "Dashboard",
+    "messages": "Messages",
+    "browse": "Browse",
+    "logout": "Logout",
+    "profile": "Profile"
+  },
+  "Common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "save": "Save",
+    "cancel": "Cancel",
+    "search": "Search..."
+  },
+  "Dashboard": {
+    "welcome": "Welcome back, {name}!",
+    "donor": "Donor",
+    "recipient": "Recipient",
+    "ngo": "NGO",
+    "admin": "Admin"
+  }
+}

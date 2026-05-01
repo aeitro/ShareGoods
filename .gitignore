@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# next.js
+frontend working/.next/
+frontend working/out/
+
+# production
+frontend working/build/
+backend/dist/
+
+# debug
+*.log
+.pnpm-debug.log*
+
+# env files
+.env*
+*.env
+
+# local config
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
