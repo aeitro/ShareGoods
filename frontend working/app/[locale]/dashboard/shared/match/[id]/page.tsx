@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useRouter } from "@/navigation"
+import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,7 +21,7 @@ import {
   AlertTriangle
 } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link"
+import { Link } from "@/navigation"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 

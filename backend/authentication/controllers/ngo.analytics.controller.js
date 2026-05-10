@@ -1,7 +1,5 @@
-const Item = require('../models/item.model');
-const Match = require('../models/match.model');
-const User = require('../models/user.model');
 const AppError = require('../utils/AppError');
+const supabase = require('../utils/supabase');
 
 /**
  * Get Demand-Gap Analytics (Supply vs Demand)
@@ -9,48 +7,27 @@ const AppError = require('../utils/AppError');
  */
 exports.getDemandGap = async (req, res, next) => {
   try {
-    // Categories to track
     const categories = ["Clothing", "Shoes", "Books", "Toys", "Electronics", "Household Items", "Furniture"];
     
-    const analytics = await Promise.all(categories.map(async (category) => {
-      // Supply: Available items in this category
-      const supply = await Item.countDocuments({ category, status: 'available' });
-      
-      // Demand: Pending matches for this NGO in this category (or total requests)
-      const demand = await Match.countDocuments({ 
-        'item.category': category, // This requires item population or aggregation
-        status: 'pending' 
-      });
+    // Get supply stats from Supabase
+    const { data: supplyStats, error: supplyError } = await supabase
+      .from('items')
+      .select('category')
+      .eq('status', 'available');
 
-      // Since 'item.category' deep querying in countDocuments is tricky without aggregation
-      // let's use aggregation for a more robust approach
-      return { category, supply, demand };
-    }));
+    if (supplyError) throw supplyError;
 
-    // Better approach using aggregation for real-time stats
-    const supplyStats = await Item.aggregate([
-      { $match: { status: 'available' } },
-      { $group: { _id: '$category', count: { $sum: 1 } } }
-    ]);
+    // Get demand stats from Supabase
+    const { data: demandStats, error: demandError } = await supabase
+      .from('matches')
+      .select('items!inner(category)')
+      .eq('status', 'pending');
 
-    const demandStats = await Match.aggregate([
-      { $match: { status: 'pending' } },
-      {
-        $lookup: {
-          from: 'items',
-          localField: 'item',
-          foreignField: '_id',
-          as: 'itemDetails'
-        }
-      },
-      { $unwind: '$itemDetails' },
-      { $group: { _id: '$itemDetails.category', count: { $sum: 1 } } }
-    ]);
+    if (demandError) throw demandError;
 
-    // Format for frontend
     const chartData = categories.map(cat => {
-      const s = supplyStats.find(i => i._id === cat)?.count || 0;
-      const d = demandStats.find(i => i._id === cat)?.count || 0;
+      const s = supplyStats.filter(i => i.category === cat).length;
+      const d = demandStats.filter(i => i.items.category === cat).length;
       return { category: cat, supply: s, demand: d };
     });
 
@@ -69,30 +46,35 @@ exports.getDemandGap = async (req, res, next) => {
  */
 exports.getNGODonors = async (req, res, next) => {
   try {
-    const completedMatches = await Match.find({ 
-      recipient: req.user.id, 
-      status: 'completed' 
-    }).populate('donor', 'fullName email avatarUrl reputationScore');
+    const { data: completedMatches, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        donor:profiles!donor_id (*)
+      `)
+      .eq('recipient_id', req.user.id)
+      .eq('status', 'completed');
 
-    // Filter unique donors
+    if (error) throw error;
+
     const donorMap = new Map();
     completedMatches.forEach(match => {
       if (!match.donor) return;
-      const donorId = match.donor._id.toString();
+      const donorId = match.donor.id;
       if (!donorMap.has(donorId)) {
         donorMap.set(donorId, {
           id: donorId,
-          fullName: match.donor.fullName,
-          avatarUrl: match.donor.avatarUrl,
-          reputationScore: match.donor.reputationScore,
+          fullName: match.donor.full_name,
+          avatarUrl: match.donor.avatar_url,
+          reputationScore: match.donor.reputation_score,
           totalDonations: 1,
-          lastDonationDate: match.updatedAt
+          lastDonationDate: match.updated_at
         });
       } else {
         const d = donorMap.get(donorId);
         d.totalDonations += 1;
-        if (match.updatedAt > d.lastDonationDate) {
-          d.lastDonationDate = match.updatedAt;
+        if (match.updated_at > d.lastDonationDate) {
+          d.lastDonationDate = match.updated_at;
         }
       }
     });
@@ -111,13 +93,18 @@ exports.getNGODonors = async (req, res, next) => {
  */
 exports.getNGOInventory = async (req, res, next) => {
   try {
-    const inventory = await Match.find({
-      recipient: req.user.id,
-      status: 'completed'
-    })
-    .populate('item')
-    .populate('donor', 'fullName email phone')
-    .sort({ updatedAt: -1 });
+    const { data: inventory, error } = await supabase
+      .from('matches')
+      .select(`
+        *,
+        item:items (*),
+        donor:profiles!donor_id (*)
+      `)
+      .eq('recipient_id', req.user.id)
+      .eq('status', 'completed')
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
 
     res.status(200).json({
       success: true,

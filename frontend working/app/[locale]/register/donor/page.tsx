@@ -5,7 +5,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, Heart, Eye, EyeOff } from "lucide-react"
-import Link from "next/link"
+import { Link, useRouter } from "@/navigation"
+import { showSuccessToast, showErrorToast } from "@/components/ui/toast-notification"
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button"
 
 interface FormData {
   fullName: string
@@ -26,6 +28,7 @@ interface FormErrors {
 }
 
 export default function RegisterDonorPage() {
+  const router = useRouter()
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -110,7 +113,7 @@ export default function RegisterDonorPage() {
 
     try {
       // Call the backend API
-      const response = await fetch('/api/register/donor', {
+      const response = await fetch('/api/auth/register/donor', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,14 +131,12 @@ export default function RegisterDonorPage() {
 
       if (response.ok) {
         // Use toast notification instead of alert
-        import('@/components/ui/toast-notification').then(({ showSuccessToast }) => {
-          showSuccessToast({
-            description: data.message || "Account created successfully! Welcome to ShareGoods!"
-          })
+        showSuccessToast({
+          description: data.message || "Account created successfully! Welcome to ShareGoods!"
         })
         
         // Redirect to login page
-        window.location.href = '/login'
+        router.push('/login')
       } else {
         // Handle validation errors or other issues
         if (data.errors) {
@@ -146,17 +147,13 @@ export default function RegisterDonorPage() {
           setErrors(prev => ({ ...prev, [data.field]: data.message }))
           
           // Show toast for the error
-          import('@/components/ui/toast-notification').then(({ showErrorToast }) => {
-            showErrorToast({
-              description: data.message || "Registration failed. Please check the form and try again."
-            })
+          showErrorToast({
+            description: data.message || "Registration failed. Please check the form and try again."
           })
         } else {
           // General error message with toast
-          import('@/components/ui/toast-notification').then(({ showErrorToast }) => {
-            showErrorToast({
-              description: data.message || "Registration failed. Please try again."
-            })
+          showErrorToast({
+            description: data.message || "Registration failed. Please try again."
           })
         }
       }
@@ -164,10 +161,8 @@ export default function RegisterDonorPage() {
       console.error("Registration error:", error)
       
       // Show error toast for unexpected errors
-      import('@/components/ui/toast-notification').then(({ showErrorToast }) => {
-        showErrorToast({
-          description: "Something went wrong. Please try again."
-        })
+      showErrorToast({
+        description: "Something went wrong. Please try again."
       })
     } finally {
       setIsSubmitting(false)
@@ -347,6 +342,17 @@ export default function RegisterDonorPage() {
                   >
                     {isSubmitting ? "Creating Account..." : "Create Donor Account"}
                   </Button>
+
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-200"></div>
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                    </div>
+                  </div>
+
+                  <GoogleSignInButton text="Register with Google" role="DONOR" />
                 </form>
 
                 {/* Login Link */}

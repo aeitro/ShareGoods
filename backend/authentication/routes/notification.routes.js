@@ -1,6 +1,6 @@
 const express = require('express');
 const { protect } = require('../middleware/auth.middleware');
-const Notification = require('../models/notification.model');
+const supabase = require('../utils/supabase');
 
 const router = express.Router();
 
@@ -11,9 +11,15 @@ router.use(protect);
  */
 router.get('/my', async (req, res) => {
   try {
-    const notifications = await Notification.find({ user: req.user.id })
-      .sort({ createdAt: -1 })
+    const { data: notifications, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
       .limit(50);
+
+    if (error) throw error;
+    
     res.status(200).json({ status: 'success', data: notifications });
   } catch (error) {
     res.status(400).json({ status: 'error', message: error.message });
@@ -25,11 +31,16 @@ router.get('/my', async (req, res) => {
  */
 router.patch('/:id/read', async (req, res) => {
   try {
-    const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, user: req.user.id },
-      { readAt: Date.now() },
-      { new: true }
-    );
+    const { data: notification, error } = await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
     res.status(200).json({ status: 'success', data: notification });
   } catch (error) {
     res.status(400).json({ status: 'error', message: error.message });
@@ -41,10 +52,14 @@ router.patch('/:id/read', async (req, res) => {
  */
 router.post('/read-all', async (req, res) => {
   try {
-    await Notification.updateMany(
-      { user: req.user.id, readAt: null },
-      { readAt: Date.now() }
-    );
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', req.user.id)
+      .is('read_at', null);
+
+    if (error) throw error;
+    
     res.status(200).json({ status: 'success', message: 'All notifications marked as read' });
   } catch (error) {
     res.status(400).json({ status: 'error', message: error.message });

@@ -1,4 +1,4 @@
-const User = require('../models/user.model');
+const supabase = require('../utils/supabase');
 
 /**
  * Recalculate reputation score for a user
@@ -11,27 +11,29 @@ const User = require('../models/user.model');
  */
 exports.recalculateScore = async (userId) => {
   try {
-    const user = await User.findById(userId);
-    if (!user) return;
+    const { data: user, error: userError } = await supabase
+      .from('profiles')
+      .select('handover_count, total_matches, no_show_count')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) return;
 
     // 1. Follow-through Rate (40%)
-    // Base score is 50. HandoverCount/TotalMatches ratio adds/subtracts from it.
     let followThroughScore = 0;
-    if (user.totalMatches > 0) {
-      followThroughScore = (user.handoverCount / user.totalMatches) * 40;
+    if (user.total_matches > 0) {
+      followThroughScore = (user.handover_count / user.total_matches) * 40;
     } else {
-      followThroughScore = 20; // Default middle ground for new users
+      followThroughScore = 20; 
     }
 
     // 2. Feedback average (35%)
-    // Since we don't have a Rating model yet, we'll use a placeholder average of 4.5/5
     const feedbackScore = (4.5 / 5) * 35;
 
     // 3. No-show Penalty (-15%)
-    const noShowPenalty = user.noShowCount * 5; // -5 points per no-show
+    const noShowPenalty = (user.no_show_count || 0) * 5; 
 
     // 4. Response Speed (10%)
-    // Placeholder: Assume average speed for now
     const speedScore = 8; 
 
     // Calculate final score
@@ -40,8 +42,10 @@ exports.recalculateScore = async (userId) => {
     // Clamp between 0 and 100
     finalScore = Math.max(0, Math.min(100, finalScore));
 
-    user.reputationScore = finalScore;
-    await user.save();
+    await supabase
+      .from('profiles')
+      .update({ reputation_score: finalScore })
+      .eq('id', userId);
 
     console.log(`[REPUTATION] User ${userId} score updated to: ${finalScore}`);
     

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Table,
   TableBody,
@@ -22,6 +22,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Search, Trash2, Ban, RefreshCw } from 'lucide-react'
+import { apiRequest } from '@/lib/api-client'
+import DashboardLayout from '@/components/dashboard/layout'
 
 interface User {
   id: string
@@ -118,7 +120,8 @@ export default function UsersManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <DashboardLayout role="ADMIN">
+      <div className="container mx-auto px-4 py-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Users Management</h1>
         <p className="text-muted-foreground mt-2">
@@ -223,6 +226,7 @@ export default function UsersManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </DashboardLayout>
   )
 }

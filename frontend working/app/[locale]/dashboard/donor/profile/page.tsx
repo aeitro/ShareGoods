@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ArrowLeft, Heart, User, Mail, Phone, MapPin, Edit, Save, X, Eye, EyeOff, ShieldCheck, ShieldAlert, Star } from "lucide-react"
-import Link from "next/link"
-import { apiRequest } from "@/lib/api"
+import { ArrowLeft, Heart, User, Mail, Phone, MapPin, Edit, Save, X, Eye, EyeOff, ShieldCheck, ShieldAlert, Star, Camera } from "lucide-react"
+import { Link } from "@/navigation"
+import { apiRequest } from "@/lib/api-client"
+import DashboardLayout from "@/components/dashboard/layout"
 
 interface ProfileData {
   fullName: string
@@ -28,7 +29,30 @@ export default function DonorProfilePage() {
   
   const [showVerification, setShowVerification] = useState(false)
   const [otp, setOtp] = useState("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+
+  const triggerFileInput = () => fileInputRef.current?.click()
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setProfileImage(reader.result as string)
+        // In a real app, you would upload to Supabase storage here
+      }
+      reader.readAsDataURL(file)
+    }
+  }
   
+  const [user, setUser] = useState<any>(null);
+  
+  useEffect(() => {
+    const userStr = localStorage.getItem('user')
+    if (userStr) setUser(JSON.parse(userStr))
+  }, [])
+
   const [profileData, setProfileData] = useState<ProfileData>({
     fullName: "",
     email: "",
@@ -135,27 +159,22 @@ export default function DonorProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
-            <Link
-                href="/dashboard/donor"
-                className="flex items-center space-x-2 text-gray-600 hover:text-[#4CAF50] transition-colors"
-              >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm">Back to Dashboard</span>
-            </Link>
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 bg-[#4CAF50] rounded-lg flex items-center justify-center">
-                <Heart className="w-3 h-3 text-white" />
-              </div>
-              <span className="font-bold text-gray-900">ShareGoods</span>
+    <DashboardLayout user={user} role="DONOR">
+      <div className="min-h-screen bg-gray-50/50">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center space-x-4">
+              <Link
+                  href="/dashboard/donor"
+                  className="flex items-center space-x-2 text-gray-600 hover:text-[#4CAF50] transition-colors"
+                >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm font-bold">Back to Dashboard</span>
+              </Link>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
@@ -181,13 +200,32 @@ export default function DonorProfilePage() {
             <div className="lg:col-span-1">
               <Card className="bg-white border-0 shadow-sm">
                 <CardContent className="p-6 text-center">
-                  <div className="w-24 h-24 bg-gray-300 rounded-full mx-auto mb-4 overflow-hidden">
-                    <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${profileData.fullName}`} alt="Avatar" className="w-full h-full object-cover" />
+                  <div className="relative w-24 h-24 mx-auto mb-4">
+                    <div className="w-full h-full bg-gray-100 rounded-full overflow-hidden flex items-center justify-center border-4 border-white shadow-sm">
+                      {profileImage ? (
+                        <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${profileData.fullName}`} alt="Avatar" className="w-full h-full object-cover" />
+                      )}
+                    </div>
+                    <button
+                      onClick={triggerFileInput}
+                      className="absolute -bottom-1 -right-1 p-1.5 bg-[#4CAF50] text-white rounded-full shadow-lg hover:bg-[#45a049] transition-all"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
                   </div>
                   <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center justify-center gap-2">
                     {profileData.fullName}
-                    {verificationStatus === 'verified' && <ShieldCheck className="w-5 h-5 text-blue-500" title="Verified" />}
-                    {verificationStatus === 'pending' && <ShieldAlert className="w-5 h-5 text-amber-500" title="Verification Pending" />}
+                    {verificationStatus === 'verified' && <span title="Verified"><ShieldCheck className="w-5 h-5 text-blue-500" /></span>}
+                    {verificationStatus === 'pending' && <span title="Verification Pending"><ShieldAlert className="w-5 h-5 text-amber-500" /></span>}
                   </h2>
                   <p className="text-gray-600 mb-4">
                     Donor since {profileData.joinDate}
@@ -492,5 +530,6 @@ export default function DonorProfilePage() {
         </div>
       </main>
     </div>
+    </DashboardLayout>
   )
 }

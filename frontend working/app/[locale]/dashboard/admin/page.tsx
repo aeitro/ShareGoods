@@ -9,7 +9,7 @@ import {
   Users, Package, CheckCircle, Clock, TrendingUp,
   AlertTriangle, Building2, Activity, RefreshCw
 } from "lucide-react"
-import Link from 'next/link'
+import { Link } from "@/navigation"
 import DashboardLayout from "@/components/dashboard/layout"
 
 interface Stats {

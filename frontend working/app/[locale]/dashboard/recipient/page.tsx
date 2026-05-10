@@ -17,7 +17,7 @@ import {
   MessageCircle,
 } from "lucide-react"
 import Image from "next/image"
-import Link from "next/link"
+import { Link } from "@/navigation"
 import DashboardLayout from "@/components/dashboard/layout"
 import { getStatusColor, getStatusText } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -60,23 +60,38 @@ export default function RecipientDashboard() {
     const fetchData = async () => {
       try {
         const userStr = localStorage.getItem('user')
-        if (userStr) setUser(JSON.parse(userStr))
+        if (userStr) {
+          setUser(JSON.parse(userStr))
+        } else {
+          // Fallback: Sync user if missing from localStorage
+          try {
+            const profileRes = await apiRequest<{ data: any }>('/profile/me')
+            if (profileRes.data) {
+              const profileData = profileRes.data;
+              setUser(profileData)
+              localStorage.setItem('user', JSON.stringify(profileData))
+              if (profileData.role) localStorage.setItem('userRole', profileData.role)
+            }
+          } catch (err) {
+            console.error("Failed to sync user data in dashboard:", err)
+          }
+        }
 
         // Fetch my requests
         const requestsRes = await apiRequest<{ data: any[] }>('/matches')
         setMyRequests(requestsRes.data.map(m => ({
-          id: m._id,
-          itemName: m.item?.name || "Deleted Item",
+          id: m.id,
+          itemName: m.items?.name || "Deleted Item",
           status: m.status,
-          requestDate: m.createdAt,
-          donor: m.donor?.fullName,
-          image: m.item?.images?.[0] || "/placeholder.svg",
-          category: m.item?.category || "N/A"
+          requestDate: m.created_at,
+          donor: m.donor?.full_name,
+          image: m.items?.item_images?.[0]?.image_path || "/placeholder.svg",
+          category: m.items?.category || "N/A"
         })))
 
         // Fetch saved item IDs
         const savedRes = await apiRequest<{ data: any[] }>('/saved-listings/my')
-        const ids = new Set(savedRes.data.map(s => s.item?._id).filter(Boolean))
+        const ids = new Set(savedRes.data.map(s => s.item_id).filter(Boolean))
         setSavedItemIds(ids)
       } catch (error) {
         console.error("Failed to fetch recipient data:", error)
@@ -114,18 +129,25 @@ export default function RecipientDashboard() {
         }
 
         const itemsRes = await apiRequest<{ data: any[] }>(`/items?${params.toString()}`)
-        setAvailableItems(itemsRes.data.map(item => ({
-          id: item._id,
+        const unsplashPlaceholders = [
+          "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3", // Clothing
+          "https://images.unsplash.com/photo-1544640808-32ca72ac7f67", // Books
+          "https://images.unsplash.com/photo-1556910103-1c02745aae4d", // Household
+          "https://images.unsplash.com/photo-1553062407-98eeb64c6a62", // Backpack
+        ]
+        
+        setAvailableItems(itemsRes.data.map((item, index) => ({
+          id: item.id,
           name: item.name,
           category: item.category,
           condition: item.condition || "Good",
-          image: item.images[0] || "/placeholder.svg",
-          location: item.location?.address || item.location,
-          donor: item.donor?.fullName || "Anonymous",
-          datePosted: item.createdAt,
+          image: item.item_images?.[0]?.image_path || `${unsplashPlaceholders[index % unsplashPlaceholders.length]}?auto=format&fit=crop&q=80&w=800`,
+          location: item.address || "Nearby",
+          donor: item.profiles?.full_name || "Anonymous",
+          datePosted: item.created_at,
           description: item.description,
           distance: item.distance ? `${(item.distance / 1000).toFixed(1)} km` : "Nearby",
-          donorReputation: item.donor?.reputationScore || 50
+          donorReputation: item.profiles?.reputation_score || 50
         })))
       } catch (error) {
         console.error("Failed to fetch items:", error)
@@ -247,8 +269,8 @@ export default function RecipientDashboard() {
                       className="object-cover group-hover:scale-110 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <button className="absolute top-3 right-3 p-2 rounded-xl bg-white/90 backdrop-blur-md text-gray-400 hover:text-[#A7D129] shadow-sm transition-colors">
-                      <Bookmark className={`w-4 h-4 ${savedItemIds.has(item.id) ? "fill-current text-[#A7D129]" : ""}`} />
+                    <button className="absolute top-3 right-3 p-2 rounded-xl bg-white/90 backdrop-blur-md text-gray-400 hover:text-[#4CAF50] shadow-sm transition-colors">
+                      <Bookmark className={`w-4 h-4 ${savedItemIds.has(item.id) ? "fill-current text-[#4CAF50]" : ""}`} />
                     </button>
                     <div className="absolute bottom-3 left-3 flex items-center space-x-2">
                       <Badge className="bg-white/90 backdrop-blur-md text-gray-900 hover:bg-white">{item.condition}</Badge>
@@ -315,7 +337,7 @@ export default function RecipientDashboard() {
                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3">{request.category}</p>
                         
                         {['approved', 'matched', 'confirmed'].includes(request.status) && (
-                          <Button size="sm" className="w-full bg-[#A7D129] hover:bg-[#8eb822] text-gray-900 text-xs font-bold rounded-xl h-8" asChild>
+                          <Button size="sm" className="w-full bg-[#4CAF50] hover:bg-[#45a049] text-white text-xs font-bold rounded-xl h-8" asChild>
                             <Link href={`/dashboard/shared/match/${request.id}`}>
                               <MessageCircle className="w-3 h-3 mr-1.5" />
                               Coordinate Pickup

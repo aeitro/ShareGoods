@@ -1,13 +1,20 @@
-const User = require('../models/user.model');
 const { sendOTP, sendEmailVerification } = require('../utils/external-services');
+const supabase = require('../utils/supabase');
 
 /**
  * Get current user profile
  */
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
-    res.status(200).json({ status: 'success', data: user });
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({ status: 'success', data: profile });
   } catch (error) {
     res.status(400).json({ status: 'error', message: error.message });
   }
@@ -18,21 +25,33 @@ exports.getProfile = async (req, res) => {
  */
 exports.updateProfile = async (req, res) => {
   try {
-    const allowedFields = ['fullName', 'location', 'language', 'avatarUrl'];
+    const allowedFields = ['full_name', 'address', 'language', 'avatar_url', 'reputation_score'];
     const updates = {};
     
+    // Map frontend fields to DB fields if necessary
+    const fieldMapping = {
+      fullName: 'full_name',
+      avatarUrl: 'avatar_url',
+      location: 'address'
+    };
+
     Object.keys(req.body).forEach(key => {
-      if (allowedFields.includes(key)) {
-        updates[key] = req.body[key];
+      const dbKey = fieldMapping[key] || key;
+      if (allowedFields.includes(dbKey)) {
+        updates[dbKey] = req.body[key];
       }
     });
 
-    const user = await User.findByIdAndUpdate(req.user.id, updates, {
-      new: true,
-      runValidators: true
-    }).select('-password');
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', req.user.id)
+      .select()
+      .single();
 
-    res.status(200).json({ status: 'success', data: user });
+    if (error) throw error;
+
+    res.status(200).json({ status: 'success', data: profile });
   } catch (error) {
     res.status(400).json({ status: 'error', message: error.message });
   }

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
+import { useRouter } from "@/navigation"
+import { useSearchParams } from "next/navigation"
+import { Link } from "@/navigation"
 import Image from "next/image"
 import { ArrowLeft, CreditCard, Lock, CheckCircle, Smartphone, X, AlertCircle } from "lucide-react"
 

@@ -1,8 +1,5 @@
-const User = require('../models/user.model');
-const Item = require('../models/item.model');
-const Match = require('../models/match.model');
-const Notification = require('../models/notification.model');
 const AppError = require('../utils/AppError');
+const supabase = require('../utils/supabase');
 
 /**
  * Platform-wide stats
@@ -10,19 +7,23 @@ const AppError = require('../utils/AppError');
  */
 exports.getStats = async (req, res) => {
   try {
-    const totalUsers = await User.countDocuments();
-    const totalDonors = await User.countDocuments({ role: 'DONOR' });
-    const totalRecipients = await User.countDocuments({ role: 'INDIVIDUAL' });
-    const totalNGOs = await User.countDocuments({ role: 'NGO' });
-    const pendingNGOs = await User.countDocuments({ role: 'NGO', ngoVerificationStatus: 'pending' });
-    const totalDonations = await Item.countDocuments({ donationType: 'free' });
-    const activeListings = await Item.countDocuments({ status: 'available' });
-    const pendingMatches = await Match.countDocuments({ status: 'pending' });
-    const successfulMatches = await Match.countDocuments({ status: 'completed' });
-    const suspendedUsers = await User.countDocuments({ isActive: false });
+    // Platform stats using Supabase
+    const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+    const { count: totalDonors } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'DONOR');
+    const { count: totalRecipients } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'INDIVIDUAL');
+    const { count: totalNGOs } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'NGO');
+    const { count: pendingNGOs } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'NGO').eq('ngo_verification_status', 'pending');
+    
+    const { count: totalDonations } = await supabase.from('items').select('*', { count: 'exact', head: true }).eq('donation_type', 'free');
+    const { count: activeListings } = await supabase.from('items').select('*', { count: 'exact', head: true }).eq('status', 'available');
+    
+    const { count: pendingMatches } = await supabase.from('matches').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+    const { count: successfulMatches } = await supabase.from('matches').select('*', { count: 'exact', head: true }).eq('status', 'completed');
+    
+    const { count: suspendedUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('is_active', false);
 
-    const matchSuccessRate = pendingMatches + successfulMatches > 0
-      ? ((successfulMatches / (pendingMatches + successfulMatches)) * 100).toFixed(1)
+    const matchSuccessRate = (pendingMatches || 0) + (successfulMatches || 0) > 0
+      ? (((successfulMatches || 0) / ((pendingMatches || 0) + (successfulMatches || 0))) * 100).toFixed(1)
       : 0;
 
     res.status(200).json({
@@ -46,18 +47,17 @@ exports.getStats = async (req, res) => {
 exports.getAllUsers = async (req, res) => {
   try {
     const { role, isActive, search } = req.query;
-    let query = {};
-    if (role) query.role = role;
-    if (isActive !== undefined) query.isActive = isActive === 'true';
+    let query = supabase.from('profiles').select('*');
+
+    if (role) query = query.eq('role', role);
+    if (isActive !== undefined) query = query.eq('is_active', isActive === 'true');
     if (search) {
-      query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
-      ];
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
     }
-    const users = await User.find(query)
-      .select('-password -resetPasswordToken -resetPasswordExpires')
-      .sort({ createdAt: -1 });
+    
+    const { data: users, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
 
     res.status(200).json({ success: true, count: users.length, data: users });
   } catch (error) {
@@ -71,16 +71,17 @@ exports.getAllUsers = async (req, res) => {
  */
 exports.suspendUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    ).select('-password');
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-    if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
+    if (error || !user) return res.status(404).json({ status: 'error', message: 'User not found' });
 
-    await Notification.create({
-      recipient: user._id,
+    await supabase.from('notifications').insert({
+      recipient_id: user.id,
       type: 'SYSTEM',
       title: 'Account Suspended',
       message: 'Your account has been suspended. Contact support for assistance.',
@@ -98,13 +99,14 @@ exports.suspendUser = async (req, res) => {
  */
 exports.reinstateUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { isActive: true },
-      { new: true }
-    ).select('-password');
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .update({ is_active: true })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-    if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
+    if (error || !user) return res.status(404).json({ status: 'error', message: 'User not found' });
 
     res.status(200).json({ success: true, data: user });
   } catch (error) {
@@ -118,8 +120,8 @@ exports.reinstateUser = async (req, res) => {
  */
 exports.deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
+    const { error } = await supabase.from('profiles').delete().eq('id', req.params.id);
+    if (error) throw error;
     res.status(200).json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
     res.status(400).json({ status: 'error', message: error.message });
@@ -132,9 +134,14 @@ exports.deleteUser = async (req, res) => {
  */
 exports.getNGOQueue = async (req, res) => {
   try {
-    const ngos = await User.find({ role: 'NGO', ngoVerificationStatus: 'pending' })
-      .select('-password')
-      .sort({ createdAt: 1 });
+    const { data: ngos, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'NGO')
+      .eq('ngo_verification_status', 'pending')
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
     res.status(200).json({ success: true, count: ngos.length, data: ngos });
   } catch (error) {
     res.status(400).json({ status: 'error', message: error.message });
@@ -147,16 +154,17 @@ exports.getNGOQueue = async (req, res) => {
  */
 exports.approveNGO = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { ngoVerificationStatus: 'approved', isVerifiedNGO: true },
-      { new: true }
-    ).select('-password');
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .update({ ngo_verification_status: 'approved', is_verified_ngo: true })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-    if (!user) return res.status(404).json({ status: 'error', message: 'NGO not found' });
+    if (error || !user) return res.status(404).json({ status: 'error', message: 'NGO not found' });
 
-    await Notification.create({
-      recipient: user._id,
+    await supabase.from('notifications').insert({
+      recipient_id: user.id,
       type: 'SYSTEM',
       title: 'NGO Verified ✅',
       message: 'Congratulations! Your NGO has been verified. You now have full access to platform features.',
@@ -175,16 +183,17 @@ exports.approveNGO = async (req, res) => {
 exports.rejectNGO = async (req, res) => {
   try {
     const { reason } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { ngoVerificationStatus: 'rejected', isVerifiedNGO: false },
-      { new: true }
-    ).select('-password');
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .update({ ngo_verification_status: 'rejected', is_verified_ngo: false })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-    if (!user) return res.status(404).json({ status: 'error', message: 'NGO not found' });
+    if (error || !user) return res.status(404).json({ status: 'error', message: 'NGO not found' });
 
-    await Notification.create({
-      recipient: user._id,
+    await supabase.from('notifications').insert({
+      recipient_id: user.id,
       type: 'SYSTEM',
       title: 'NGO Verification Rejected',
       message: `Your NGO verification was rejected. Reason: ${reason || 'No reason provided'}. Please contact support.`,
@@ -195,7 +204,6 @@ exports.rejectNGO = async (req, res) => {
     res.status(400).json({ status: 'error', message: error.message });
   }
 };
-const Report = require('../models/report.model');
 
 /**
  * Get all reports
@@ -204,13 +212,18 @@ const Report = require('../models/report.model');
 exports.getReports = async (req, res) => {
   try {
     const { status } = req.query;
-    let query = {};
-    if (status) query.status = status;
+    let query = supabase
+      .from('reports')
+      .select(`
+        *,
+        reporter:profiles!reporter_id (full_name, email, role)
+      `);
+      
+    if (status) query = query.eq('status', status);
 
-    const reports = await Report.find(query)
-      .populate('reporter', 'fullName email role')
-      .populate('targetId')
-      .sort({ createdAt: -1 });
+    const { data: reports, error } = await query.order('created_at', { ascending: false });
+
+    if (error) throw error;
 
     res.status(200).json({ success: true, count: reports.length, data: reports });
   } catch (error) {
@@ -225,13 +238,14 @@ exports.getReports = async (req, res) => {
 exports.resolveReport = async (req, res) => {
   try {
     const { status, adminNote } = req.body;
-    const report = await Report.findByIdAndUpdate(
-      req.params.id,
-      { status, adminNote },
-      { new: true }
-    );
+    const { data: report, error } = await supabase
+      .from('reports')
+      .update({ status, admin_note: adminNote })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-    if (!report) return res.status(404).json({ status: 'error', message: 'Report not found' });
+    if (error || !report) return res.status(404).json({ status: 'error', message: 'Report not found' });
 
     res.status(200).json({ success: true, data: report });
   } catch (error) {
@@ -245,21 +259,34 @@ exports.resolveReport = async (req, res) => {
  */
 exports.toggleItemStatus = async (req, res) => {
   try {
-    const item = await Item.findById(req.params.id);
-    if (!item) return res.status(404).json({ status: 'error', message: 'Item not found' });
+    const { data: item, error: findError } = await supabase
+      .from('items')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (findError || !item) return res.status(404).json({ status: 'error', message: 'Item not found' });
 
     // Toggle status between 'available' and 'suspended'
-    item.status = item.status === 'suspended' ? 'available' : 'suspended';
-    await item.save();
+    const newStatus = item.status === 'suspended' ? 'available' : 'suspended';
+    
+    const { data: updated, error: updateError } = await supabase
+      .from('items')
+      .update({ status: newStatus })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-    await Notification.create({
-      recipient: item.donor,
+    if (updateError) throw updateError;
+
+    await supabase.from('notifications').insert({
+      recipient_id: updated.donor_id,
       type: 'SYSTEM',
-      title: item.status === 'suspended' ? 'Item Taken Down' : 'Item Reinstated',
-      message: `Your item "${item.name}" has been ${item.status === 'suspended' ? 'removed from the platform' : 'reinstated'}.`,
+      title: updated.status === 'suspended' ? 'Item Taken Down' : 'Item Reinstated',
+      message: `Your item "${updated.name}" has been ${updated.status === 'suspended' ? 'removed from the platform' : 'reinstated'}.`,
     });
 
-    res.status(200).json({ success: true, data: item });
+    res.status(200).json({ success: true, data: updated });
   } catch (error) {
     res.status(400).json({ status: 'error', message: error.message });
   }

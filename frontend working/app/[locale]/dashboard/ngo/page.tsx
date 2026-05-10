@@ -14,7 +14,7 @@ import {
   TrendingUp,
   AlertTriangle,
 } from "lucide-react"
-import Link from "next/link"
+import { Link } from "@/navigation"
 import DashboardLayout from "@/components/dashboard/layout"
 
 export default function NGODashboard() {
@@ -31,7 +31,22 @@ export default function NGODashboard() {
     const fetchData = async () => {
       try {
         const userStr = localStorage.getItem('user')
-        if (userStr) setUser(JSON.parse(userStr))
+        if (userStr) {
+          setUser(JSON.parse(userStr))
+        } else {
+          // Fallback: Sync user if missing from localStorage
+          try {
+            const profileRes = await apiRequest<{ data: any }>('/profile/me')
+            if (profileRes.data) {
+              const profileData = profileRes.data;
+              setUser(profileData)
+              localStorage.setItem('user', JSON.stringify(profileData))
+              if (profileData.role) localStorage.setItem('userRole', profileData.role)
+            }
+          } catch (err) {
+            console.error("Failed to sync user data in dashboard:", err)
+          }
+        }
 
         const [invRes, driveRes] = await Promise.all([
             apiRequest<{ count: number }>('/ngo/inventory'),

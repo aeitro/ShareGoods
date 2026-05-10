@@ -3,7 +3,7 @@
 import React, { useEffect, createContext, useContext } from 'react'
 import { initSocket, getSocket } from '@/lib/socket'
 import { useToast } from '@/components/ui/use-toast'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter } from "@/navigation"
 
 const SocketContext = createContext<any>(null)
 

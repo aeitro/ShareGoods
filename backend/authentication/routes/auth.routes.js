@@ -15,12 +15,12 @@ router.post('/register/:role', authController.register);
 router.post('/login', validateLogin, authController.login);
 
 // Google Sign-In route
-router.post('/auth/google', validateGoogleSignIn, authController.googleSignIn);
+router.post('/google', validateGoogleSignIn, authController.googleSignIn);
 
 // Forgot password route
-router.post('/auth/forgot-password', validateForgotPassword, authController.forgotPassword);
+router.post('/forgot-password', validateForgotPassword, authController.forgotPassword);
 
 // Reset password route
-router.post('/auth/reset-password', validateResetPassword, authController.resetPassword);
+router.post('/reset-password', validateResetPassword, authController.resetPassword);
 
 module.exports = router;

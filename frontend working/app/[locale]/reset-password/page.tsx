@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, Heart, Eye, EyeOff, Lock, CheckCircle } from "lucide-react"
-import Link from "next/link"
+import { Link } from "@/navigation"
 import { useSearchParams } from "next/navigation"
 
 interface ResetPasswordFormData {
@@ -95,8 +95,7 @@ export default function ResetPasswordPage() {
     setErrors({})
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${apiUrl}/api/auth/reset-password`, {
+      const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

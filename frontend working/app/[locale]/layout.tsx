@@ -1,7 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import "./globals.css"
+import "../globals.css"
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -10,9 +10,7 @@ export const metadata: Metadata = {
   title: "ShareGoods - Turn Your Extra Items into Lifesaving Help",
   description:
     "Connect with people in need by donating clothes, shoes, and essentials. Make a difference in your community, one donation at a time.",
-  generator: 'v0.dev',
   manifest: '/manifest.json',
-  themeColor: '#4CAF50',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -21,6 +19,10 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+}
+
+export const viewport = {
+  themeColor: '#4CAF50',
 }
 
 import {NextIntlClientProvider} from 'next-intl';
@@ -37,7 +39,15 @@ export default async function RootLayout({
   children: React.ReactNode;
   params: {locale: string};
 }) {
-  const messages = await getMessages();
+  let messages;
+  try {
+    console.log(`[Layout] Fetching messages for locale: ${locale}`);
+    messages = await getMessages();
+    console.log(`[Layout] Messages loaded successfully`);
+  } catch (error) {
+    console.error(`[Layout] Failed to load messages:`, error);
+    messages = {}; // Fallback to empty messages to prevent white screen
+  }
 
   return (
     <html lang={locale}>

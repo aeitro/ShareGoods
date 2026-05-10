@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import DashboardLayout from "@/components/dashboard/layout"
+import { useRouter } from "@/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -17,10 +18,10 @@ import {
   Grid3X3,
   List,
 } from "lucide-react"
-import { PurchaseFlow } from "@/components/ui/purchase-flow"
+
 import { useCustomToast } from "@/hooks/use-custom-toast"
 import Image from "next/image"
-import Link from "next/link"
+import { Link } from "@/navigation"
 
 interface DonationItem {
   id: string
@@ -35,11 +36,16 @@ interface DonationItem {
   distance: string
   rating: number
   isUrgent?: boolean
-  donationType?: "free" | "sell"
-  price?: number
 }
 
 export default function BrowseItemsPage() {
+  const [user, setUser] = useState<any>(null)
+  
+  useEffect(() => {
+    const userStr = localStorage.getItem('user')
+    if (userStr) setUser(JSON.parse(userStr))
+  }, [])
+
   const router = useRouter()
   const { showSuccess } = useCustomToast()
   const [searchQuery, setSearchQuery] = useState("")
@@ -49,7 +55,6 @@ export default function BrowseItemsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [showFilters, setShowFilters] = useState(false)
   const [selectedItem, setSelectedItem] = useState<DonationItem | null>(null)
-  const [isPurchaseFlowOpen, setIsPurchaseFlowOpen] = useState(false)
 
   const categories = [
     "all",
@@ -80,7 +85,7 @@ export default function BrowseItemsPage() {
       name: "Winter Coat - Large",
       category: "Clothing",
       condition: "Like New",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?auto=format&fit=crop&q=80&w=800",
       location: "Downtown, San Francisco",
       donor: "Sarah Johnson",
       datePosted: "2024-01-15",
@@ -88,88 +93,78 @@ export default function BrowseItemsPage() {
       distance: "0.5 miles",
       rating: 4.8,
       isUrgent: true,
-      donationType: "free"
     },
     {
       id: "2",
       name: "Children's Books Set",
       category: "Books",
       condition: "Good",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "https://images.unsplash.com/photo-1544640808-32ca72ac7f67?auto=format&fit=crop&q=80&w=800",
       location: "Mission District, SF",
       donor: "James Chen",
       datePosted: "2024-01-12",
       description: "Collection of educational children's books, ages 5-10. Includes picture books and early readers.",
       distance: "1.2 miles",
       rating: 4.9,
-      donationType: "sell",
-      price: 15
     },
     {
       id: "3",
       name: "Kitchen Appliances Set",
       category: "Household Items",
       condition: "Good",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&q=80&w=800",
       location: "Castro, San Francisco",
       donor: "Emily Davis",
       datePosted: "2024-01-10",
       description: "Blender, toaster, and coffee maker in good working condition. Perfect for new apartment.",
       distance: "2.1 miles",
       rating: 4.6,
-      donationType: "sell",
-      price: 45
     },
     {
       id: "4",
       name: "School Backpack",
       category: "Clothing",
       condition: "New",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=800",
       location: "Richmond, SF",
       donor: "Michael Brown",
       datePosted: "2024-01-08",
       description: "Brand new school backpack with multiple compartments. Perfect for students.",
       distance: "3.0 miles",
       rating: 5.0,
-      donationType: "free"
     },
     {
       id: "5",
       name: "Baby Stroller",
       category: "Baby Items",
       condition: "Good",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "https://images.unsplash.com/photo-1591084728795-1149f32d9866?auto=format&fit=crop&q=80&w=800",
       location: "Sunset District, SF",
       donor: "Lisa Wilson",
       datePosted: "2024-01-07",
       description: "Lightweight baby stroller, easy to fold and transport. Suitable for infants to toddlers.",
       distance: "2.8 miles",
       rating: 4.7,
-      donationType: "sell",
-      price: 30
     },
     {
       id: "6",
       name: "Dining Table Set",
       category: "Furniture",
       condition: "Fair",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "https://images.unsplash.com/photo-1577113399419-89b5121e99be?auto=format&fit=crop&q=80&w=800",
       location: "SOMA, San Francisco",
       donor: "David Kim",
       datePosted: "2024-01-05",
       description: "Wooden dining table with 4 chairs. Shows some wear but still functional.",
       distance: "1.8 miles",
       rating: 4.3,
-      donationType: "sell",
-      price: 75
     },
     {
       id: "7",
       name: "Women's Professional Clothes",
       category: "Clothing",
       condition: "Like New",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "https://images.unsplash.com/photo-1485230895905-ec40ba36b9bc?auto=format&fit=crop&q=80&w=800",
       location: "Financial District, SF",
       donor: "Amanda Rodriguez",
       datePosted: "2024-01-04",
@@ -177,22 +172,19 @@ export default function BrowseItemsPage() {
       distance: "1.5 miles",
       rating: 4.9,
       isUrgent: true,
-      donationType: "free"
     },
     {
       id: "8",
       name: "Gaming Console",
       category: "Electronics",
       condition: "Good",
-      image: "/placeholder.svg?height=200&width=200",
+      image: "https://images.unsplash.com/photo-1486401899868-0e435ed85128?auto=format&fit=crop&q=80&w=800",
       location: "Haight-Ashbury, SF",
       donor: "Ryan Thompson",
       datePosted: "2024-01-03",
       description: "PlayStation 4 with controllers and games. Great for family entertainment.",
       distance: "2.5 miles",
       rating: 4.8,
-      donationType: "sell",
-      price: 120
     },
   ]
 
@@ -223,13 +215,7 @@ export default function BrowseItemsPage() {
     })
 
   const handleRequestItem = (item: DonationItem) => {
-    setSelectedItem(item)
-    setIsPurchaseFlowOpen(true)
-  }
-  
-  const handlePurchaseFlowClose = () => {
-    setIsPurchaseFlowOpen(false)
-    setSelectedItem(null)
+    router.push(`/dashboard/recipient/item/${item.id}`)
   }
   
   const handleRequestSuccess = (itemName: string) => {
@@ -240,15 +226,9 @@ export default function BrowseItemsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Purchase Flow Modal */}
-      {selectedItem && (
-        <PurchaseFlow 
-          isOpen={isPurchaseFlowOpen} 
-          onClose={handlePurchaseFlowClose} 
-          item={selectedItem} 
-        />
-      )}
+    <DashboardLayout user={user} role="INDIVIDUAL">
+      <div className="min-h-screen bg-gray-50/50">
+
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
@@ -258,13 +238,7 @@ export default function BrowseItemsPage() {
               className="flex items-center space-x-2 text-gray-600 hover:text-[#4CAF50] transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm">Back to Dashboard</span>
-            </Link>
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-6 h-6 bg-[#4CAF50] rounded-lg flex items-center justify-center">
-                <Heart className="w-3 h-3 text-white" />
-              </div>
-              <span className="font-bold text-gray-900">ShareGoods</span>
+              <span className="text-sm font-bold">Back to Dashboard</span>
             </Link>
           </div>
         </div>
@@ -429,23 +403,17 @@ export default function BrowseItemsPage() {
                       <div className="flex-1">
                         <h3 className="font-semibold text-gray-900 text-sm mb-1">{item.name}</h3>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                          <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-[10px] font-bold uppercase tracking-wider">
                             {item.condition}
                           </span>
                           {item.isUrgent && (
-                            <span className="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                            <span className="px-2 py-1 bg-red-50 text-red-600 rounded-full text-[10px] font-bold uppercase tracking-wider">
                               Urgent
                             </span>
                           )}
-                          {item.donationType === "free" ? (
-                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                              Free
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                              ${item.price?.toFixed(2)}
-                            </span>
-                          )}
+                          <span className="px-2 py-1 bg-green-50 text-[#4CAF50] rounded-full text-[10px] font-bold uppercase tracking-wider">
+                            Donation
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -471,16 +439,18 @@ export default function BrowseItemsPage() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="text-xs flex-1">
-                        <Eye className="w-3 h-3 mr-1" />
-                        View Details
-                      </Button>
+                      <Link href={`/dashboard/recipient/item/${item.id}`} className="flex-1">
+                        <Button size="sm" variant="outline" className="text-xs w-full rounded-xl h-9">
+                          <Eye className="w-3 h-3 mr-1" />
+                          Details
+                        </Button>
+                      </Link>
                       <Button
                         size="sm"
                         onClick={() => handleRequestItem(item)}
-                        className="bg-[#4CAF50] hover:bg-[#45a049] text-white text-xs flex-1"
+                        className="bg-[#4CAF50] hover:bg-[#45a049] text-white text-xs flex-1 rounded-xl h-9"
                       >
-                        {item.donationType === "sell" ? "Buy Item" : "Request Item"}
+                        Request Item
                       </Button>
                     </div>
                   </div>
@@ -515,6 +485,7 @@ export default function BrowseItemsPage() {
           </Card>
         )}
       </main>
-    </div>
+      </div>
+    </DashboardLayout>
   )
 }

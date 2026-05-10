@@ -15,7 +15,7 @@ import {
   Calendar,
   ExternalLink,
 } from "lucide-react"
-import Link from "next/link"
+import { Link } from "@/navigation"
 import { Input } from "@/components/ui/input"
 
 export default function InventoryPage() {

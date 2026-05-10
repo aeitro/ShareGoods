@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { Card, CardContent } from "@/components/ui/card"
 import { Heart, Users, ArrowLeft } from "lucide-react"
-import Link from "next/link"
+import { Link } from "@/navigation"
 
 export const metadata: Metadata = {
   title: "Choose Your Role - ShareGoods",

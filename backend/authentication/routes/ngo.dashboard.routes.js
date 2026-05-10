@@ -9,20 +9,18 @@ const router = express.Router();
 
 // All routes here require NGO or ADMIN role
 router.use(protect);
-router.use(restrictTo('NGO', 'ADMIN'));
-
 // Bulk Requests
-router.post('/requests/bulk', ngoController.createBulkRequest);
+router.post('/requests/bulk', restrictTo('NGO', 'ADMIN'), ngoController.createBulkRequest);
 
 // Analytics & Inventory
-router.get('/analytics/demand-gap', ngoAnalyticsController.getDemandGap);
-router.get('/donors', ngoAnalyticsController.getNGODonors);
-router.get('/inventory', ngoAnalyticsController.getNGOInventory);
+router.get('/analytics/demand-gap', restrictTo('NGO', 'ADMIN'), ngoAnalyticsController.getDemandGap);
+router.get('/donors', restrictTo('NGO', 'ADMIN'), ngoAnalyticsController.getNGODonors);
+router.get('/inventory', restrictTo('NGO', 'ADMIN'), ngoAnalyticsController.getNGOInventory);
 
 // Drives
-router.post('/drives', driveController.createDrive);
+router.post('/drives', restrictTo('NGO', 'ADMIN'), driveController.createDrive);
 router.get('/drives', driveController.getAllDrives);
-router.get('/drives/:id/rsvps', driveController.getDriveRSVPs);
+router.get('/drives/:id/rsvps', restrictTo('NGO', 'ADMIN'), driveController.getDriveRSVPs);
 
 // RSVP for Donors (This one is special, needs different role)
 router.post('/drives/:id/rsvp', restrictTo('DONOR', 'ADMIN'), driveController.rsvpToDrive);

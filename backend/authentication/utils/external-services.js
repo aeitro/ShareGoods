@@ -30,12 +30,3 @@ exports.sendEmailVerification = async (email, link) => {
   return { status: 'success', message: 'Email sent' };
 };
 
-/**
- * Generate Cloudinary Signed Upload Signature
- */
-exports.getCloudinarySignature = (params) => {
-  console.log(`[STUB] Generating Cloudinary signature for params:`, params);
-  // In real implementation:
-  // return cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET);
-  return 'placeholder_signature_12345';
-};

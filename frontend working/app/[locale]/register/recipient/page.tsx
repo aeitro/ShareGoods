@@ -5,8 +5,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ArrowLeft, Heart, Users, Building2, Eye, EyeOff, Upload, X } from "lucide-react"
-import Link from "next/link"
+import { Link, useRouter } from "@/navigation"
 import { showSuccessToast, showErrorToast } from "@/components/ui/toast-notification"
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button"
 
 type RecipientType = "individual" | "ngo" | null
 
@@ -37,6 +38,7 @@ interface FormErrors {
 }
 
 export default function RegisterRecipientPage() {
+  const router = useRouter()
   const [recipientType, setRecipientType] = useState<RecipientType>(null)
   const [individualData, setIndividualData] = useState<IndividualFormData>({
     name: "",
@@ -202,8 +204,8 @@ export default function RegisterRecipientPage() {
     try {
       // Determine which API endpoint to use based on recipient type
       const endpoint = recipientType === "individual" 
-        ? '/api/register/individual' 
-        : '/api/register/ngo';
+        ? '/api/auth/register/individual' 
+        : '/api/auth/register/ngo';
       
       // Prepare the request body based on recipient type
       const requestBody = recipientType === "individual" 
@@ -241,7 +243,7 @@ export default function RegisterRecipientPage() {
         });
         
         // Redirect to login page
-        window.location.href = '/login';
+        router.push('/login');
       } else {
         // Handle validation errors or other issues
         if (data.errors) {
@@ -709,6 +711,17 @@ export default function RegisterRecipientPage() {
                         ? "Creating Account..."
                         : `Create ${recipientType === "individual" ? "Individual" : "NGO"} Account`}
                     </Button>
+
+                    <div className="relative my-4">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-200"></div>
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                      </div>
+                    </div>
+
+                    <GoogleSignInButton text="Register with Google" role="RECIPIENT" />
                   </form>
 
                   {/* Login Link */}

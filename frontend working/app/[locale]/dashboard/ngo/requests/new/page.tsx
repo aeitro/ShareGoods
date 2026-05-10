@@ -9,8 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { apiRequest } from "@/lib/api-client"
 import { Plus, Trash2, Send, ChevronLeft, PackagePlus } from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { Link } from "@/navigation"
+import { useRouter } from "@/navigation"
 
 interface RequestRow {
   id: string

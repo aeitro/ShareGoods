@@ -1,10 +1,5 @@
-const User = require('../models/user.model');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
-const { generateToken } = require('../utils/jwt');
-const { verifyIdToken } = require('../utils/firebase');
-const { sendPasswordResetEmail } = require('../utils/email');
 const AppError = require('../utils/AppError');
+const supabase = require('../utils/supabase');
 
 /**
  * Register a new user (Generic)
@@ -22,53 +17,35 @@ exports.register = async (req, res, next) => {
       return next(new AppError('Invalid role specified', 400));
     }
 
-    // Check if email already exists
-    const existingEmail = await User.findOne({ email });
-    if (existingEmail) {
-      return next(new AppError('Email already exists.', 400, 'email'));
-    }
-    
-    // Check if phone already exists
-    const existingPhone = await User.findOne({ phone });
-    if (existingPhone) {
-      return next(new AppError('Phone number already exists.', 400, 'phone'));
-    }
-
-    const userData = {
-      fullName,
+    // Register with Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
       email,
-      phone,
       password,
-      address,
-      role: normalizedRole
-    };
+      options: {
+        data: {
+          full_name: fullName,
+          role: normalizedRole,
+          phone: phone,
+          address: address,
+          registration_number: registrationNumber
+        }
+      }
+    });
 
-    // NGO Specific Validation
-    if (normalizedRole === 'NGO') {
-      if (!registrationNumber || !registrationNumber.startsWith('NGO') || registrationNumber.length < 6) {
-        return next(new AppError('Invalid NGO registration number.', 400, 'registrationNumber'));
-      }
-      const existingRegNumber = await User.findOne({ registrationNumber });
-      if (existingRegNumber) {
-        return next(new AppError('Registration number already exists.', 400, 'registrationNumber'));
-      }
-      userData.registrationNumber = registrationNumber;
+    if (error) {
+      return next(new AppError(error.message, 400));
     }
 
-    // Create new user
-    const newUser = await User.create(userData);
-    
-    newUser.password = undefined;
-    
+    // Note: The SQL trigger 'on_auth_user_created' will handle inserting into the 'profiles' table.
+
     res.status(201).json({
       success: true,
-      message: 'Registration successful.',
+      message: 'Registration successful. Please check your email for verification.',
       user: {
-        id: newUser._id,
-        fullName: newUser.fullName,
-        email: newUser.email,
-        role: newUser.role,
-        ...(newUser.registrationNumber && { registrationNumber: newUser.registrationNumber })
+        id: data.user.id,
+        fullName: fullName,
+        email: email,
+        role: normalizedRole
       }
     });
   } catch (error) {
@@ -82,40 +59,38 @@ exports.register = async (req, res, next) => {
  */
 exports.login = async (req, res) => {
   try {
-    const { email, password, rememberMe } = req.body;
+    const { email, password } = req.body;
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    // Sign in with Supabase
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
 
-    // Check if user exists
-    if (!user) {
+    if (error) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: error.message
       });
     }
 
-    // Compare password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
+    // Get user profile/role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single();
 
-    // Generate JWT token
-    const token = generateToken(
-      { id: user._id, email: user.email, role: user.role },
-      rememberMe
-    );
+    // Generate our own JWT for backward compatibility if needed, 
+    // or just return the Supabase session
+    const token = data.session.access_token;
 
-    // Return success response
     return res.status(200).json({
       success: true,
       token,
-      role: user.role,
-      message: 'Login successful'
+      role: profile?.role || 'INDIVIDUAL',
+      message: 'Login successful',
+      user: data.user
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -133,65 +108,27 @@ exports.login = async (req, res) => {
 exports.googleSignIn = async (req, res) => {
   try {
     const { idToken } = req.body;
-
-    // Verify Firebase ID token
-    let decodedToken;
-    try {
-      decodedToken = await verifyIdToken(idToken);
-    } catch (error) {
-      console.error('Firebase token verification error:', error);
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid ID token'
-      });
-    }
-
-    // Extract user information from decoded token
-    const { email, name, picture } = decodedToken;
     
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email not provided in the token'
-      });
-    }
+    // In Supabase, client handles the OAuth flow (typically on frontend)
+    // and we receive the session. If this is a server-side verification:
+    const { data, error } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: idToken
+    });
 
-    // Check if user exists
-    let user = await User.findOne({ email });
+    if (error) throw error;
 
-    // If user doesn't exist, create a new one
-    if (!user) {
-      user = new User({
-        fullName: name || email.split('@')[0],
-        email,
-        profilePicture: picture,
-        role: 'DONOR', // Default role for Google Sign-In users
-        password: crypto.randomBytes(20).toString('hex'), // Random password
-        isEmailVerified: true, // Google accounts have verified emails
-        isGoogleSignIn: true // Mark as Google Sign-In user
-      });
-
-      await user.save();
-    }
-
-    // Generate JWT token
-    const token = generateToken(
-      { id: user._id, email: user.email, role: user.role },
-      true // rememberMe set to true for Google Sign-In
-    );
-
-    // Return success response
     return res.status(200).json({
       success: true,
-      token,
-      role: user.role,
+      token: data.session.access_token,
+      user: data.user,
       message: 'Google login successful'
     });
   } catch (error) {
     console.error('Google Sign-In error:', error);
     return res.status(500).json({
       success: false,
-      message: 'An error occurred during Google Sign-In'
+      message: error.message || 'An error occurred during Google Sign-In'
     });
   }
 };
@@ -204,24 +141,12 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password`,
+    });
 
-    // Generate reset token (even if user doesn't exist to prevent email enumeration)
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+    if (error) throw error;
 
-    // If user exists, save reset token
-    if (user) {
-      user.resetPasswordToken = resetToken;
-      user.resetPasswordExpires = resetTokenExpiry;
-      await user.save();
-
-      // Send password reset email
-      await sendPasswordResetEmail(email, resetToken);
-    }
-
-    // Always return success to prevent email enumeration
     return res.status(200).json({
       success: true,
       message: 'If the email exists, a reset link has been sent.'
@@ -241,29 +166,20 @@ exports.forgotPassword = async (req, res) => {
  */
 exports.resetPassword = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
+    const { newPassword } = req.body;
 
-    // Find user with valid reset token
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }
+    // In Supabase, the user should be logged in via the recovery link token
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
     });
 
-    // Check if token is valid
-    if (!user) {
+    if (error) {
       return res.status(400).json({
         success: false,
-        message: 'Password reset token is invalid or has expired'
+        message: error.message
       });
     }
 
-    // Update password and clear reset token
-    user.password = newPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-    await user.save();
-
-    // Return success response
     return res.status(200).json({
       success: true,
       message: 'Password reset successful'

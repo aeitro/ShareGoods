@@ -1,5 +1,5 @@
-const Wishlist = require('../models/wishlist.model');
 const AppError = require('../utils/AppError');
+const supabase = require('../utils/supabase');
 
 /**
  * Create a wishlist entry
@@ -9,21 +9,29 @@ exports.createEntry = async (req, res, next) => {
   try {
     const { category, subcategory, conditionMin, maxDistanceKm, alertEnabled, note } = req.body;
 
-    const entry = await Wishlist.create({
-      user: req.user.id,
-      category,
-      subcategory: subcategory || null,
-      conditionMin: conditionMin || 'any',
-      maxDistanceKm: maxDistanceKm || 25,
-      alertEnabled: alertEnabled !== false,
-      note: note || ''
-    });
+    const { data: entry, error } = await supabase
+      .from('wishlist')
+      .insert({
+        user_id: req.user.id,
+        category,
+        subcategory: subcategory || null,
+        condition_min: conditionMin || 'any',
+        max_distance_km: maxDistanceKm || 25,
+        alert_enabled: alertEnabled !== false,
+        note: note || ''
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') { // Unique constraint violation in Postgres
+        return next(new AppError('You already have a wishlist entry for this category.', 409));
+      }
+      throw error;
+    }
 
     res.status(201).json({ success: true, data: entry });
   } catch (error) {
-    if (error.code === 11000) {
-      return next(new AppError('You already have a wishlist entry for this category.', 409));
-    }
     next(error);
   }
 };
@@ -34,7 +42,14 @@ exports.createEntry = async (req, res, next) => {
  */
 exports.getMyWishlist = async (req, res, next) => {
   try {
-    const entries = await Wishlist.find({ user: req.user.id }).sort({ createdAt: -1 });
+    const { data: entries, error } = await supabase
+      .from('wishlist')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    
     res.status(200).json({ success: true, count: entries.length, data: entries });
   } catch (error) {
     next(error);
@@ -47,12 +62,13 @@ exports.getMyWishlist = async (req, res, next) => {
  */
 exports.deleteEntry = async (req, res, next) => {
   try {
-    const entry = await Wishlist.findOneAndDelete({
-      _id: req.params.id,
-      user: req.user.id
-    });
+    const { error } = await supabase
+      .from('wishlist')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id);
 
-    if (!entry) return next(new AppError('Wishlist entry not found', 404));
+    if (error) throw error;
 
     res.status(200).json({ success: true, message: 'Entry removed from wishlist' });
   } catch (error) {
@@ -66,13 +82,25 @@ exports.deleteEntry = async (req, res, next) => {
  */
 exports.toggleAlert = async (req, res, next) => {
   try {
-    const entry = await Wishlist.findOne({ _id: req.params.id, user: req.user.id });
-    if (!entry) return next(new AppError('Wishlist entry not found', 404));
+    const { data: entry, error: findError } = await supabase
+      .from('wishlist')
+      .select('alert_enabled')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
 
-    entry.alertEnabled = !entry.alertEnabled;
-    await entry.save();
+    if (findError || !entry) return next(new AppError('Wishlist entry not found', 404));
 
-    res.status(200).json({ success: true, data: entry });
+    const { data: updated, error: updateError } = await supabase
+      .from('wishlist')
+      .update({ alert_enabled: !entry.alert_enabled })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    res.status(200).json({ success: true, data: updated });
   } catch (error) {
     next(error);
   }

@@ -1,4 +1,4 @@
-const { verifyToken } = require('../utils/jwt');
+const supabase = require('../utils/supabase');
 
 /**
  * Middleware to protect routes that require authentication
@@ -6,7 +6,7 @@ const { verifyToken } = require('../utils/jwt');
  * @param {Object} res - Express response object
  * @param {Function} next - Express next function
  */
-exports.protect = (req, res, next) => {
+exports.protect = async (req, res, next) => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
@@ -24,19 +24,27 @@ exports.protect = (req, res, next) => {
       });
     }
 
-    // Verify token
-    const decoded = verifyToken(token);
-    if (!decoded) {
+    // Verify token with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
       return res.status(401).json({
         success: false,
         message: 'Invalid or expired token. Please log in again.'
       });
     }
 
+    // Get user role from profiles table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
     // Add user ID and role to request object
     req.user = {
-      id: decoded.id,
-      role: decoded.role
+      id: user.id,
+      role: profile?.role || 'INDIVIDUAL'
     };
 
     next();

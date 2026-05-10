@@ -1,8 +1,5 @@
 'use client'
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   ArrowLeft,
   Heart,
@@ -17,8 +14,14 @@ import {
   EyeOff,
   Building2,
   FileText,
+  Camera,
+  Upload,
 } from "lucide-react"
-import Link from "next/link"
+import { Link } from "@/navigation"
+import { useRef, useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import DashboardLayout from "@/components/dashboard/layout"
 
 interface ProfileData {
   name: string
@@ -41,8 +44,21 @@ interface ProfileData {
 const userType: "individual" | "ngo" = "individual" // Change to "ngo" to see NGO profile
 
 export default function RecipientProfilePage() {
+  const [user, setUser] = useState<any>(null)
+  
+  useEffect(() => {
+    const userStr = localStorage.getItem('user')
+    if (userStr) setUser(JSON.parse(userStr))
+  }, [])
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
+  const [profileImage, setProfileImage] = useState<string | null>(
+    userType === "ngo" 
+      ? "https://images.unsplash.com/photo-1577412647305-991150c7d163?auto=format&fit=crop&q=80&w=200"
+      : "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200"
+  )
   const [profileData, setProfileData] = useState<ProfileData>({
     name: userType === "ngo" ? "Maria Rodriguez" : "Maria Rodriguez",
     email: userType === "ngo" ? "contact@communityhelpCenter.org" : "maria.rodriguez@email.com",
@@ -92,33 +108,39 @@ export default function RecipientProfilePage() {
     setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" })
   }
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setProfileImage(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click()
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center space-x-4">
+    <DashboardLayout user={user} role="INDIVIDUAL">
+      <div className="min-h-screen bg-gray-50/50">
+        {/* Header with Back Button */}
+        <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
+          <div className="container mx-auto px-4 py-4">
             <Link
               href="/dashboard/recipient"
-              className="flex items-center space-x-2 text-gray-600 hover:text-[#4CAF50] transition-colors"
+              className="flex items-center space-x-2 text-gray-500 hover:text-[#4CAF50] transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm">Back to Dashboard</span>
+              <span className="text-sm font-bold">Back to Dashboard</span>
             </Link>
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 bg-[#4CAF50] rounded-lg flex items-center justify-center">
-                <Heart className="w-3 h-3 text-white" />
-              </div>
-              <span className="font-bold text-gray-900">ShareGoods</span>
-            </div>
           </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-6">
+        </header>
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               {userType === "ngo" ? "Organization" : "Recipient"} Profile
             </h1>
@@ -134,13 +156,30 @@ export default function RecipientProfilePage() {
             <div className="lg:col-span-1">
               <Card className="bg-white border-0 shadow-sm">
                 <CardContent className="p-6 text-center">
-                  {userType === "ngo" ? (
-                    <div className="w-24 h-24 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                      <Building2 className="w-12 h-12 text-blue-600" />
+                  <div className="relative w-32 h-32 mx-auto mb-6">
+                    <div className="w-full h-full rounded-2xl overflow-hidden ring-4 ring-white shadow-lg bg-gray-100 flex items-center justify-center">
+                      {profileImage ? (
+                        <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                      ) : userType === "ngo" ? (
+                        <Building2 className="w-16 h-16 text-blue-600" />
+                      ) : (
+                        <User className="w-16 h-16 text-gray-400" />
+                      )}
                     </div>
-                  ) : (
-                    <div className="w-24 h-24 bg-gray-300 rounded-full mx-auto mb-4"></div>
-                  )}
+                    <button
+                      onClick={triggerFileInput}
+                      className="absolute -bottom-2 -right-2 p-2.5 bg-[#4CAF50] text-white rounded-xl shadow-lg hover:bg-[#45a049] transition-all transform hover:scale-105"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImageUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                  </div>
 
                   <h2 className="text-xl font-bold text-gray-900 mb-1">
                     {userType === "ngo" ? profileData.organizationName : profileData.name}
@@ -481,6 +520,7 @@ export default function RecipientProfilePage() {
           </div>
         </div>
       </main>
-    </div>
+      </div>
+    </DashboardLayout>
   )
 }

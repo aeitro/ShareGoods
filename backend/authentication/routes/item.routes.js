@@ -11,6 +11,7 @@ router.get('/:id', itemController.getItemById);
 // Protected routes
 router.use(protect);
 
+router.get('/my-items', itemController.getMyItems);
 router.post('/', restrictTo('DONOR', 'ADMIN'), itemController.createItem);
 router.patch('/:id', itemController.updateItem);
 router.delete('/:id', itemController.deleteItem);
